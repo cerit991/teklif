@@ -1,0 +1,22 @@
+{
+  "products": [
+    {
+      "id": 1,
+      "name": "Rama Krema",
+      "offers": [
+        {
+          "firm": "OTS",
+          "price": 360,
+          "kdvRate": 10,
+          "priceWithKdv": 396
+        },
+        {
+          "firm": "Ali",
+          "price": 495,
+          "kdvRate": 10,
+          "priceWithKdv": 544.5
+        }
+      ]
+    }
+  ]
+}
