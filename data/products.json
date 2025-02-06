@@ -6,15 +6,15 @@
       "offers": [
         {
           "firm": "OTS",
-          "price": 360,
+          "price": 275,
           "kdvRate": 10,
-          "priceWithKdv": 396
+          "priceWithKdv": 302.5
         },
         {
           "firm": "Ali",
-          "price": 495,
+          "price": 125,
           "kdvRate": 10,
-          "priceWithKdv": 544.5
+          "priceWithKdv": 137.5
         }
       ]
     }

@@ -2,7 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { FaPlus, FaBox, FaBuilding, FaMoneyBillWave, FaPercent, FaChartLine, FaList, FaSearch } from 'react-icons/fa';
+import { FaPlus, FaBox, FaBuilding, FaMoneyBillWave, FaPercent, FaChartLine, FaList, FaSearch, FaEdit } from 'react-icons/fa';
+import History from '../components/history';
+import EditOfferModal from '../components/EditOfferModal';
 
 const ProductList = () => {
   const [selectedProduct, setSelectedProduct] = useState(null);
@@ -20,6 +22,9 @@ const ProductList = () => {
     kdvRate: 1 // default KDV rate
   });
   const [searchTerm, setSearchTerm] = useState('');
+  const [editingOffer, setEditingOffer] = useState(null);
+  const [historyUpdateTrigger, setHistoryUpdateTrigger] = useState(0);
+  const [showMobileEditModal, setShowMobileEditModal] = useState(false);
 
   const kdvRates = [1, 10, 20];
 
@@ -106,6 +111,69 @@ const ProductList = () => {
       await fetchProducts();
     } catch (error) {
       console.error('Error saving offer:', error);
+    }
+  };
+
+  const handleEditOffer = async (productId, offerIndex, updatedOffer) => {
+    const updatedProducts = products.map(product => {
+      if (product.id === productId) {
+        const oldOffer = product.offers[offerIndex];
+        const newOffers = [...product.offers];
+        const basePrice = Number(updatedOffer.price);
+        const priceWithKdv = calculatePriceWithKdv(basePrice, updatedOffer.kdvRate);
+        
+        newOffers[offerIndex] = {
+          ...updatedOffer,
+          price: basePrice,
+          priceWithKdv
+        };
+        
+        // Record price history
+        if (oldOffer.price !== basePrice) {
+          fetch('/api/history', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              date: new Date().toISOString(),
+              productName: product.name,
+              firm: updatedOffer.firm,
+              oldPrice: oldOffer.price,
+              newPrice: basePrice,
+              priceChange: basePrice - oldOffer.price,
+              kdvRate: updatedOffer.kdvRate
+            }),
+          }).then(() => {
+            // Trigger history update after successful save
+            setHistoryUpdateTrigger(prev => prev + 1);
+          });
+        }
+
+        const updatedProduct = {
+          ...product,
+          offers: newOffers
+        };
+        setSelectedProduct(updatedProduct);
+        return updatedProduct;
+      }
+      return product;
+    });
+
+    setProducts(updatedProducts);
+    setEditingOffer(null);
+    setShowMobileEditModal(false);
+
+    try {
+      await fetch('/api/products', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ products: updatedProducts }),
+      });
+    } catch (error) {
+      console.error('Error updating offer:', error);
     }
   };
 
@@ -217,7 +285,7 @@ const ProductList = () => {
           </motion.div>
         </div>
 
-        {/* Products Grid - Make it stack on mobile */}
+        {/* Products Grid */}
         <div className="grid lg:grid-cols-3 gap-4 sm:gap-6">
           {/* Product List Panel */}
           <div className="lg:col-span-1 order-2 lg:order-1">
@@ -227,8 +295,8 @@ const ProductList = () => {
                 <span className="text-sm text-gray-500">{filteredProducts.length} ürün</span>
               </div>
 
+              {/* Product List */}
               <div className="space-y-2 mb-4 sm:mb-6 max-h-[60vh] overflow-y-auto">
-                {/* Add scroll for long lists */}
                 {filteredProducts.map((product) => {
                   const averages = calculateAveragePrice(product.offers);
                   return (
@@ -261,6 +329,7 @@ const ProductList = () => {
                 })}
               </div>
 
+              {/* Add Product Form */}
               <form onSubmit={handleAddProduct} className="mt-4">
                 <div className="flex gap-2">
                   <input
@@ -281,7 +350,7 @@ const ProductList = () => {
             </div>
           </div>
 
-          {/* Offers Panel - Show above product list on mobile */}
+          {/* Offers Panel */}
           <div className="lg:col-span-2 order-1 lg:order-2">
             {selectedProduct ? (
               <motion.div
@@ -307,6 +376,73 @@ const ProductList = () => {
                     .map((offer, index) => {
                       const priceWithKdv = offer.priceWithKdv || 
                         calculatePriceWithKdv(offer.price, offer.kdvRate);
+                      
+                      if (editingOffer && editingOffer.index === index) {
+                        return (
+                          <motion.div
+                            key={index}
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            className="p-4 bg-gray-50 rounded-lg"
+                          >
+                            <form onSubmit={(e) => {
+                              e.preventDefault();
+                              handleEditOffer(selectedProduct.id, index, editingOffer.offer);
+                            }}>
+                              <div className="flex flex-col gap-3">
+                                <div className="flex gap-3">
+                                  <input
+                                    type="text"
+                                    value={editingOffer.offer.firm}
+                                    onChange={(e) => setEditingOffer({
+                                      ...editingOffer,
+                                      offer: { ...editingOffer.offer, firm: e.target.value }
+                                    })}
+                                    className="flex-1 rounded-lg border-gray-200"
+                                  />
+                                  <input
+                                    type="number"
+                                    value={editingOffer.offer.price}
+                                    onChange={(e) => setEditingOffer({
+                                      ...editingOffer,
+                                      offer: { ...editingOffer.offer, price: e.target.value }
+                                    })}
+                                    className="w-32 rounded-lg border-gray-200"
+                                  />
+                                  <select
+                                    value={editingOffer.offer.kdvRate}
+                                    onChange={(e) => setEditingOffer({
+                                      ...editingOffer,
+                                      offer: { ...editingOffer.offer, kdvRate: Number(e.target.value) }
+                                    })}
+                                    className="w-32 rounded-lg border-gray-200"
+                                  >
+                                    {kdvRates.map(rate => (
+                                      <option key={rate} value={rate}>KDV {rate}%</option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div className="flex gap-2 justify-end">
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditingOffer(null)}
+                                    className="px-3 py-1 bg-gray-200 text-gray-700 rounded-lg"
+                                  >
+                                    İptal
+                                  </button>
+                                  <button
+                                    type="submit"
+                                    className="px-3 py-1 bg-blue-600 text-white rounded-lg"
+                                  >
+                                    Kaydet
+                                  </button>
+                                </div>
+                              </div>
+                            </form>
+                          </motion.div>
+                        );
+                      }
+
                       return (
                         <motion.div
                           key={index}
@@ -320,13 +456,24 @@ const ProductList = () => {
                               <FaBuilding className="text-gray-400" />
                               <span className="font-medium text-gray-900">{offer.firm}</span>
                             </div>
-                            <div className="text-right">
-                              <div className="text-sm text-gray-600">
-                                KDV'siz: {offer.price.toLocaleString()} TL
+                            <div className="flex items-center gap-4">
+                              <div className="text-right">
+                                <div className="text-sm text-gray-600">
+                                  KDV'siz: {offer.price.toLocaleString()} TL
+                                </div>
+                                <div className="font-medium text-green-600">
+                                  KDV'li (%{offer.kdvRate}): {priceWithKdv.toLocaleString()} TL
+                                </div>
                               </div>
-                              <div className="font-medium text-green-600">
-                                KDV'li (%{offer.kdvRate}): {priceWithKdv.toLocaleString()} TL
-                              </div>
+                              <button
+                                onClick={() => {
+                                  setEditingOffer({ index, offer: { ...offer } });
+                                  setShowMobileEditModal(true);
+                                }}
+                                className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
+                              >
+                                <FaEdit />
+                              </button>
                             </div>
                           </div>
                         </motion.div>
@@ -378,7 +525,28 @@ const ProductList = () => {
             )}
           </div>
         </div>
+        
+        {/* History Component */}
+        <div className="mt-6">
+          <History updateTrigger={historyUpdateTrigger} />
+        </div>
       </main>
+
+      {/* Add the modal component */}
+      <EditOfferModal
+        isOpen={showMobileEditModal}
+        onClose={() => {
+          setShowMobileEditModal(false);
+          setEditingOffer(null);
+        }}
+        editingOffer={editingOffer}
+        onSubmit={(e) => {
+          e.preventDefault();
+          handleEditOffer(selectedProduct.id, editingOffer.index, editingOffer.offer);
+        }}
+        kdvRates={kdvRates}
+        setEditingOffer={setEditingOffer}
+      />
     </div>
   );
 };

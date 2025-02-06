@@ -1,0 +1,22 @@
+{
+  "history": [
+    {
+      "date": "2025-02-06T18:16:13.195Z",
+      "productName": "Rama Krema",
+      "firm": "OTS",
+      "oldPrice": 255,
+      "newPrice": 275,
+      "priceChange": 20,
+      "kdvRate": 10
+    },
+    {
+      "date": "2025-02-06T17:37:03.012Z",
+      "productName": "Rama Krema",
+      "firm": "OTS",
+      "oldPrice": 360,
+      "newPrice": 255,
+      "priceChange": -105,
+      "kdvRate": 10
+    }
+  ]
+}
